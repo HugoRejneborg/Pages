@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frånvarokalkylator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f4f6f9; color: #1a1a1a; padding: 24px; min-height: 100vh; }
+h1 { font-size: 20px; font-weight: 600; color: #1F4E79; margin-bottom: 4px; }
+.subtitle { font-size: 13px; color: #666; margin-bottom: 20px; }
+.card { background: #fff; border: 1px solid #dde3ec; border-radius: 10px; padding: 20px; margin-bottom: 14px; }
+.slabel { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; }
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.row label { font-size: 14px; color: #1a1a1a; min-width: 220px; flex-shrink: 0; }
+.unit { font-size: 13px; color: #888; }
+input[type=number], input[type=text], select { border: 1px solid #c8d5e8; border-radius: 6px; padding: 6px 10px; font-size: 14px; outline: none; }
+input[type=number], input[type=text] { background: #EBF3FB; color: #0000CC; }
+input[type=number]:focus, input[type=text]:focus, select:focus { border-color: #2E75B6; }
+input[type=number] { width: 80px; text-align: right; }
+input.manual-override { background: #fff8e1; color: #7a5c00; border-color: #f0cc60; }
+input.input-error { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+select { flex: 1; max-width: 220px; color: #1a1a1a; background: #fff; }
+.hint { font-size: 12px; color: #999; margin-top: -4px; margin-bottom: 8px; font-style: italic; }
+.warning { font-size: 13px; color: #991b1b; background: #fee2e2; border: 1px solid #f5b5b5; border-radius: 6px; padding: 8px 12px; margin-top: 10px; }
+.divider { border: none; border-top: 1px solid #e8edf4; margin: 14px 0; }
+.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.metric { background: #f0f4f9; border-radius: 8px; padding: 12px 14px; }
+.metric .ml { font-size: 11px; color: #888; margin-bottom: 4px; }
+.metric .mv { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+.metric .ms { font-size: 11px; color: #999; margin-top: 2px; }
+.highlight { background: #dbeafe; border-radius: 8px; padding: 14px 16px; }
+.highlight .ml { font-size: 11px; color: #1e6fb0; margin-bottom: 4px; }
+.highlight .mv { font-size: 26px; font-weight: 700; color: #1e6fb0; }
+.highlight .ms { font-size: 11px; color: #1e6fb0; margin-top: 2px; opacity: 0.8; }
+.formula-box { background: #f0f4f9; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #555; line-height: 1.9; margin-top: 12px; }
+.toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.toggle-btn { font-size: 13px; padding: 6px 16px; border-radius: 6px; border: 1px solid #c8d5e8; background: #f0f4f9; color: #888; cursor: pointer; transition: all 0.15s; }
+.toggle-btn.active { background: #dbeafe; border-color: #2E75B6; color: #1e6fb0; font-weight: 600; }
+.lager-box { border: 1px solid #dde3ec; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; position: relative; }
+.lager-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.lager-row label { font-size: 13px; color: #666; min-width: 200px; flex-shrink: 0; }
+.lager-nummer { display: inline-block; background: #dbeafe; color: #1e6fb0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 5px; margin-right: 6px; }
+.del-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; cursor: pointer; color: #aaa; font-size: 15px; padding: 2px 6px; border-radius: 4px; }
+.del-btn:hover { background: #fee2e2; color: #dc2626; }
+.add-btn { font-size: 13px; margin-top: 4px; padding: 7px 14px; border-radius: 6px; border: 1px solid #c8d5e8; background: #f0f4f9; cursor: pointer; color: #1F4E79; font-weight: 500; }
+.add-btn:hover { background: #dbeafe; }
+.pdf-btn { font-size: 13px; margin-top: 4px; padding: 7px 14px; border-radius: 6px; border: none; background: #1F4E79; cursor: pointer; color: #fff; font-weight: 500; margin-left: 8px; }
+.pdf-btn:hover { background: #163d61; }
+.autofill-badge { display: inline-block; font-size: 10px; background: #dbeafe; color: #1e6fb0; border-radius: 4px; padding: 1px 6px; margin-left: 4px; font-style: normal; vertical-align: middle; }
+.personec-box { background: #ecfccb; border: 1px solid #a3e635; border-radius: 8px; padding: 14px 16px; margin-top: 14px; }
+.personec-head { font-size: 11px; font-weight: 600; color: #3f6212; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+.personec-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid #bef264; font-size: 14px; }
+.personec-row:first-child { border-top: none; padding-top: 2px; }
+.personec-row .plabel { color: #3f6212; }
+.personec-row .pval { font-family: 'Courier New', monospace; font-weight: 700; color: #1a2e05; font-size: 16px; background: #fff; padding: 3px 10px; border-radius: 4px; border: 1px solid #bef264; }
+.personec-row .ppct { font-size: 12px; color: #4d7c0f; margin-left: 8px; }
+.print-only { display: none; }
+table.logtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.logtable th { text-align: left; font-size: 11px; font-weight: 600; color: #888; padding: 6px 8px; border-bottom: 1px solid #dde3ec; }
+table.logtable td { padding: 7px 8px; border-bottom: 1px solid #eef1f6; color: #1a1a1a; vertical-align: middle; }
+table.logtable tr:last-child td { border-bottom: none; }
+table.logtable tr:nth-child(even) td { background: #f8fafc; }
+.del-btn-inline { background: none; border: none; cursor: pointer; color: #aaa; font-size: 13px; padding: 2px 5px; border-radius: 4px; }
+.del-btn-inline:hover { background: #fee2e2; color: #dc2626; }
+@media print {
+  body { background: #fff; padding: 12px; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .card { break-inside: avoid; border: 1px solid #ccc; margin-bottom: 10px; }
+  .formula-box { background: #f5f5f5; }
+}
+</style>
+</head>
+<body>
+
+<h1>Frånvarokalkylator</h1>
+<p class="subtitle">Fyll i timmar <em>eller</em> frånvaro% — det andra räknas ut automatiskt.</p>
+
+<div class="card no-print">
+  <p class="slabel">Läge</p>
+  <div class="toggle-row">
+    <button class="toggle-btn active" id="btn-enkel" onclick="setMode('enkel')">Ett frånvarolager</button>
+    <button class="toggle-btn" id="btn-flera" onclick="setMode('flera')">Frånvaro på frånvaro</button>
+  </div>
+  <div class="row">
+    <label>Namn / anteckning</label>
+    <input type="text" id="inp-namn" placeholder="t.ex. Anna S." style="width:200px;background:#fff;color:#1a1a1a;">
+  </div>
+  <div class="row">
+    <label>Heltidsmått (h/vecka)</label>
+    <input type="number" id="heltid" value="40" min="1" max="60" step="1" oninput="onGrundChanged()">
+    <span class="unit">h/v</span>
+  </div>
+  <div class="row">
+    <label>Grundsysselsättning (%)</label>
+    <input type="number" id="grundpct" value="100" min="0" max="100" step="1" oninput="onGrundChanged()">
+    <span class="unit">%</span>
+    <span style="font-size:13px;color:#888" id="grundh-label">= 40,0 h/v</span>
+  </div>
+  <div id="manuell-input-section">
+    <div style="border-top:1px dashed #c8d5e8;margin:10px 0 12px;"></div>
+    <p style="font-size:12px;color:#888;margin-bottom:10px;font-style:italic;" id="input-hint">Fyll i ett av fälten nedan — det andra beräknas automatiskt.</p>
+    <div class="row">
+      <label>Faktiska arbetstimmar (h/v) <span class="autofill-badge" id="badge-tim" style="display:none">autofylld</span></label>
+      <input type="number" id="faktiskH" placeholder="lämna tomt" min="0" max="60" step="0.5" oninput="fromTimmar()">
+      <span class="unit">h/v</span>
+    </div>
+    <div class="row">
+      <label>Frånvaro% att registrera <span class="autofill-badge" id="badge-pct" style="display:none">autofylld</span></label>
+      <input type="number" id="franvaroPctInp" placeholder="lämna tomt" min="0" max="100" step="0.5" oninput="fromPct()">
+      <span class="unit">%</span>
+    </div>
+    <div id="input-warning" class="warning" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Kända lager (syns både på skärm och i PDF när flera-läget är aktivt) -->
+<div class="card" id="kanda-lager-card" style="display:none">
+  <p class="slabel">Kända frånvarolager</p>
+  <div id="kanda-lager-container" class="no-print"><div style="font-size:13px;color:#999;padding:4px 0 10px;font-style:italic;">Inga lager ännu. Tryck + för att lägga till.</div></div>
+  <div id="kanda-lager-print" class="print-only"></div>
+  <button class="add-btn no-print" onclick="laggTillKandLager()">+ Lägg till frånvarolager</button>
+</div>
+
+<div class="card">
+  <p class="slabel">Svar</p>
+  <div class="result-grid">
+    <div class="metric">
+      <div class="ml">Grundsyss</div>
+      <div class="mv" id="r-grundh">40,0 h/v</div>
+      <div class="ms" id="r-grundpct">100,0%</div>
+    </div>
+    <div class="metric" id="r-eftertidigarelager-box" style="display:none">
+      <div class="ml">Schema efter kända lager</div>
+      <div class="mv" id="r-efterh">—</div>
+      <div class="ms" id="r-efterpct"></div>
+    </div>
+    <div class="metric">
+      <div class="ml">Faktiska timmar</div>
+      <div class="mv" id="r-faktiskh">—</div>
+      <div class="ms" id="r-faktiskh-sub">h/v</div>
+    </div>
+    <div class="highlight" id="r-franvaropct-box">
+      <div class="ml">Frånvaro% att registrera</div>
+      <div class="mv" id="r-franvaropct">—</div>
+      <div class="ms" id="r-franvarosub"></div>
+    </div>
+  </div>
+  <div id="personec-box" class="personec-box" style="display:none">
+    <div class="personec-head">Registrera i Personec</div>
+    <div id="personec-list"></div>
+  </div>
+  <div class="formula-box" id="formel"></div>
+  <hr class="divider">
+  <div style="display:flex;gap:0;align-items:center;flex-wrap:wrap;">
+    <button class="add-btn no-print" onclick="sparaLogg()">Spara till logg ↓</button>
+    <button class="pdf-btn no-print" onclick="window.print()">Spara till PDF</button>
+  </div>
+</div>
+
+<div class="card">
+  <p class="slabel">Logg — sparade fall</p>
+  <table class="logtable">
+    <thead id="logg-head">
+      <tr><th>Namn</th><th>Grundsyss</th><th>Faktiska h/v</th><th>Frånvaro%</th><th class="no-print"></th></tr>
+    </thead>
+    <tbody id="logg-body">
+      <tr><td colspan="5" style="color:#aaa;font-style:italic;padding:12px 8px">Inga sparade fall ännu.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+let mode = 'enkel';
+let kandaLager = [];
+let kandaCount = 0;
+let logg = [];
+let syncing = false;
+let userHasEdited = false;
+const typer = ['Tjänstledighet','Föräldraledighet','Sjukdom','VAB','Annan'];
+
+function fd(n, dec=1) { return isNaN(n) || n === null ? '—' : Number(n).toFixed(dec).replace('.', ','); }
+
+// Formaterar ett antal timmar som "X tim Y min" när det finns minuter,
+// annars bara "X tim". Returnerar '—' om värdet saknas.
+function fhm(n) {
+  if (isNaN(n) || n === null) return '—';
+  const totalMin = Math.round(n * 60);
+  const tim = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  if (min === 0) return tim + ' tim';
+  return tim + ' tim ' + min + ' min';
+}
+
+// Kombinerad visning: "16,5 h/v (16 tim 30 min)" — eller bara decimalen om det är en hel timme.
+function fhmKombi(n) {
+  if (isNaN(n) || n === null) return '—';
+  const totalMin = Math.round(n * 60);
+  if (totalMin % 60 === 0) return fd(n) + ' h/v';
+  return fd(n) + ' h/v (' + fhm(n) + ')';
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-enkel').className = 'toggle-btn' + (m==='enkel'?' active':'');
+  document.getElementById('btn-flera').className = 'toggle-btn' + (m==='flera'?' active':'');
+  document.getElementById('kanda-lager-card').style.display = m==='flera' ? '' : 'none';
+  document.getElementById('r-eftertidigarelager-box').style.display = m==='flera' ? '' : 'none';
+  document.getElementById('manuell-input-section').style.display = m==='flera' ? 'none' : '';
+  document.getElementById('input-hint').textContent = m === 'flera'
+    ? 'Timmar och frånvaro% autofylls från lagren. Skriver du manuellt (gula fält) tar du över.'
+    : 'Fyll i ett av fälten nedan — det andra beräknas automatiskt.';
+  userHasEdited = false;
+  resetInputFields();
+  calc();
+}
+
+function resetInputFields() {
+  const tEl = document.getElementById('faktiskH');
+  const pEl = document.getElementById('franvaroPctInp');
+  tEl.value = '';
+  pEl.value = '';
+  tEl.classList.remove('manual-override', 'input-error');
+  pEl.classList.remove('manual-override', 'input-error');
+  document.getElementById('badge-tim').style.display = 'none';
+  document.getElementById('badge-pct').style.display = 'none';
+  document.getElementById('input-warning').style.display = 'none';
+}
+
+function onGrundChanged() {
+  userHasEdited = false;
+  resetInputFields();
+  if (mode === 'flera' && kandaLager.length > 0) autoFyll();
+  calc();
+}
+
+function getSchemaEfterKanda() {
+  const heltidRaw = parseFloat(document.getElementById('heltid').value);
+  const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? heltidRaw : 40;
+  const grundpct = !isNaN(grundpctRaw) ? grundpctRaw : 0;
+  const grundH = heltid * grundpct / 100;
+  let schema = grundH;
+  if (mode === 'flera') {
+    kandaLager.forEach(l => {
+      const pct = isNaN(l.pct) ? 0 : l.pct;
+      schema = schema * (1 - pct / 100);
+    });
+  }
+  return { heltid, grundpct, grundH, schema };
+}
+
+function autoFyll() {
+  if (userHasEdited) return;
+  const { schema } = getSchemaEfterKanda();
+  const tEl = document.getElementById('faktiskH');
+  const pEl = document.getElementById('franvaroPctInp');
+  tEl.value = Math.round(schema * 10) / 10;
+  pEl.value = 0;
+  tEl.classList.remove('manual-override', 'input-error');
+  pEl.classList.remove('manual-override', 'input-error');
+  document.getElementById('badge-tim').style.display = '';
+  document.getElementById('badge-pct').style.display = '';
+  document.getElementById('input-warning').style.display = 'none';
+}
+
+function laggTillKandLager() {
+  const id = kandaCount++;
+  kandaLager.push({ id, typ: 'Tjänstledighet', pct: 20 });
+  userHasEdited = false;
+  renderKandaLager();
+  autoFyll();
+  calc();
+}
+
+function taBortKandLager(id) {
+  kandaLager = kandaLager.filter(l => l.id !== id);
+  userHasEdited = false;
+  renderKandaLager();
+  if (kandaLager.length > 0) autoFyll(); else resetInputFields();
+  calc();
+}
+
+function renderKandaLager() {
+  const c = document.getElementById('kanda-lager-container');
+  if (kandaLager.length === 0) {
+    c.innerHTML = '<div style="font-size:13px;color:#999;padding:4px 0 10px;font-style:italic;">Inga lager ännu. Tryck + för att lägga till.</div>';
+    return;
+  }
+  c.innerHTML = kandaLager.map((l, i) => `
+    <div class="lager-box">
+      <button class="del-btn" onclick="taBortKandLager(${l.id})">✕</button>
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;"><span class="lager-nummer">Lager ${i+1}</span></div>
+      <div class="lager-row">
+        <label>Typ</label>
+        <select onchange="uppdateraKandTyp(${l.id}, this.value)">
+          ${typer.map(t => `<option${t===l.typ?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="lager-row">
+        <label>Frånvaro% (av lagrets schema)</label>
+        <input type="number" value="${l.pct}" min="0" max="100" step="1" style="width:80px" oninput="uppdateraKandPct(${l.id}, this.value)">
+        <span class="unit">% &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= andel ${fd((l.pct||0)/100, 3)}</span></span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderKandaLagerPrint() {
+  const p = document.getElementById('kanda-lager-print');
+  if (kandaLager.length === 0) {
+    p.innerHTML = '';
+    return;
+  }
+  p.innerHTML = '<ul style="margin:6px 0 0 20px;font-size:13px;line-height:1.8;">' +
+    kandaLager.map((l, i) => `<li><strong>Lager ${i+1}:</strong> ${l.typ} — ${fd(l.pct)}% (andel ${fd((l.pct||0)/100, 3)})</li>`).join('') +
+    '</ul>';
+}
+
+function uppdateraKandTyp(id, val) {
+  const lager = kandaLager.find(l => l.id === id);
+  if (lager) lager.typ = val;
+  renderKandaLagerPrint();
+  renderPersonecBox();
+}
+
+function uppdateraKandPct(id, val) {
+  const lager = kandaLager.find(l => l.id === id);
+  if (lager) lager.pct = parseFloat(val) || 0;
+  // Uppdatera andelsvisningen direkt (utan att re-rendera hela lager-rutan, som skulle tappa fokus)
+  const andelSpan = document.getElementById('andel-' + id);
+  if (andelSpan && lager) andelSpan.textContent = '= andel ' + fd((lager.pct || 0) / 100, 3);
+  userHasEdited = false;
+  autoFyll();
+  calc();
+}
+
+function fromTimmar() {
+  if (syncing) return;
+  syncing = true;
+  userHasEdited = true;
+  const tEl = document.getElementById('faktiskH');
+  const pEl = document.getElementById('franvaroPctInp');
+  tEl.classList.add('manual-override');
+  document.getElementById('badge-tim').style.display = 'none';
+  document.getElementById('badge-pct').style.display = 'none';
+  const timVal = tEl.value;
+  if (timVal === '') {
+    pEl.value = '';
+    pEl.classList.remove('manual-override');
+  } else {
+    const { schema } = getSchemaEfterKanda();
+    const h = parseFloat(timVal);
+    if (schema > 0) {
+      pEl.value = Math.round((schema - h) / schema * 1000) / 10;
+    } else {
+      pEl.value = '';
+    }
+  }
+  syncing = false;
+  calc();
+}
+
+function fromPct() {
+  if (syncing) return;
+  syncing = true;
+  userHasEdited = true;
+  const tEl = document.getElementById('faktiskH');
+  const pEl = document.getElementById('franvaroPctInp');
+  pEl.classList.add('manual-override');
+  document.getElementById('badge-tim').style.display = 'none';
+  document.getElementById('badge-pct').style.display = 'none';
+  const pctVal = pEl.value;
+  if (pctVal === '') {
+    tEl.value = '';
+    tEl.classList.remove('manual-override');
+  } else {
+    const { schema } = getSchemaEfterKanda();
+    const p = parseFloat(pctVal);
+    tEl.value = Math.round(schema * (1 - p / 100) * 10) / 10;
+  }
+  syncing = false;
+  calc();
+}
+
+function showWarning(msg) {
+  const w = document.getElementById('input-warning');
+  w.textContent = msg;
+  w.style.display = '';
+}
+
+function hideWarning() {
+  document.getElementById('input-warning').style.display = 'none';
+}
+
+function calc() {
+  const { heltid, grundpct, grundH, schema: sch } = getSchemaEfterKanda();
+
+  document.getElementById('grundh-label').textContent = '= ' + fd(grundH) + ' h/v';
+  document.getElementById('r-grundh').textContent = fd(grundH) + ' h/v';
+  document.getElementById('r-grundpct').textContent = fd(grundpct) + '%';
+
+  let rows = [`Grundsyss: ${fd(grundpct)}% × ${fd(heltid, 0)} h/v = ${fd(grundH)} h/v`];
+
+  if (mode === 'flera') {
+    let tmp = grundH;
+    kandaLager.forEach((l, i) => {
+      const bort = tmp * (l.pct || 0) / 100;
+      tmp -= bort;
+      rows.push(`Lager ${i+1} (${l.typ} ${fd(l.pct)}%): −${fd(bort)} h/v → kvar ${fd(tmp)} h/v`);
+    });
+    document.getElementById('r-efterh').textContent = fd(sch) + ' h/v';
+    document.getElementById('r-efterpct').textContent = heltid > 0 ? fd(sch / heltid * 100) + '% av heltid' : '';
+    renderKandaLagerPrint();
+  }
+
+  let franvaroPct = NaN, faktiskH = NaN;
+
+  if (mode === 'flera') {
+    // I fleralager-läget: schemat efter alla lager ÄR faktiska timmar.
+    // Inga input-fält att läsa från (de är dolda).
+    faktiskH = sch;
+    hideWarning();
+  } else {
+    // Enkelt läge: läs från input-fälten
+    const tEl = document.getElementById('faktiskH');
+    const pEl = document.getElementById('franvaroPctInp');
+    const timVal = tEl.value;
+    const pctVal = pEl.value;
+
+    tEl.classList.remove('input-error');
+    pEl.classList.remove('input-error');
+    hideWarning();
+
+    if (timVal !== '') {
+      faktiskH = parseFloat(timVal);
+      franvaroPct = sch > 0 ? (sch - faktiskH) / sch * 100 : NaN;
+      if (faktiskH > sch + 0.05) {
+        tEl.classList.add('input-error');
+        showWarning(`Timmarna (${fd(faktiskH)} h/v) är fler än schemat tillåter (${fd(sch)} h/v). Kontrollera inmatningen.`);
+      } else if (faktiskH < 0) {
+        tEl.classList.add('input-error');
+        showWarning('Timmar kan inte vara negativt.');
+      }
+    } else if (pctVal !== '') {
+      franvaroPct = parseFloat(pctVal);
+      faktiskH = sch * (1 - franvaroPct / 100);
+      if (franvaroPct > 100) {
+        pEl.classList.add('input-error');
+        showWarning('Frånvaro% kan inte vara över 100.');
+      } else if (franvaroPct < 0) {
+        pEl.classList.add('input-error');
+        showWarning('Frånvaro% kan inte vara negativt.');
+      }
+    }
+  }
+
+  document.getElementById('r-franvaropct').textContent = isNaN(franvaroPct) ? '—' : fd(franvaroPct) + '%';
+  document.getElementById('r-franvarosub').textContent = 'av grundschemat (' + fd(grundH) + ' h/v)';
+  document.getElementById('r-faktiskh').textContent = isNaN(faktiskH) ? '—' : fd(faktiskH);
+
+  // Visa minuter som undertext när timmarna inte är jämna
+  const faktiskHsub = document.getElementById('r-faktiskh-sub');
+  if (!isNaN(faktiskH)) {
+    const min = Math.round(faktiskH * 60) % 60;
+    faktiskHsub.textContent = min === 0 ? 'h/v' : 'h/v = ' + fhm(faktiskH);
+  } else {
+    faktiskHsub.textContent = 'h/v';
+  }
+
+  // Samma för schema efter kända lager
+  if (mode === 'flera') {
+    const schemaMin = Math.round(sch * 60) % 60;
+    document.getElementById('r-efterpct').textContent =
+      (heltid > 0 ? fd(sch / heltid * 100) + '% av heltid' : '') +
+      (schemaMin !== 0 ? ' · ' + fhm(sch) : '');
+  }
+
+  // Dölj "Frånvaro% att registrera"-rutan i fleralager-läget
+  document.getElementById('r-franvaropct-box').style.display = mode === 'enkel' ? '' : 'none';
+
+  // Fyll Personec-sammanställningen
+  renderPersonecBox();
+
+  if (!isNaN(franvaroPct) && !isNaN(faktiskH)) {
+    const faktiskHsubTxt = (Math.round(faktiskH * 60) % 60 !== 0) ? ` = ${fhm(faktiskH)}` : '';
+    rows.push(`Ny frånvaro ${fd(franvaroPct)}% av ${fd(sch)} h/v = ${fd(sch * franvaroPct / 100)} h/v bort → kvar <strong>${fd(faktiskH)} h/v${faktiskHsubTxt}</strong>`);
+    if (mode === 'enkel') {
+      rows.push(`Frånvaro att registrera: <strong>${fd(franvaroPct)}% (andel ${fd(franvaroPct/100, 3)})</strong>`);
+    }
+  } else if (mode === 'flera' && kandaLager.length === 0) {
+    rows.push('Lägg till ett frånvarolager nedan för att se beräkningen.');
+  } else if (mode === 'enkel') {
+    rows.push('Fyll i timmar eller frånvaro% ovan för att se beräkningen.');
+  }
+  document.getElementById('formel').innerHTML = rows.join('<br>');
+}
+
+function renderPersonecBox() {
+  const box = document.getElementById('personec-box');
+  const list = document.getElementById('personec-list');
+  const rows = [];
+
+  if (mode === 'flera') {
+    // I fleralager-läget: visa varje känt lager med sin andel och procent
+    kandaLager.forEach((l, i) => {
+      rows.push(`
+        <div class="personec-row">
+          <span class="plabel"><strong>Lager ${i+1}:</strong> ${l.typ}</span>
+          <span>
+            <span class="pval">${fd(l.pct/100, 3)}</span>
+            <span class="ppct">(${fd(l.pct)}%)</span>
+          </span>
+        </div>
+      `);
+    });
+  } else {
+    // Enkelt läge: visa en rad med det beräknade frånvaro%
+    const timVal = document.getElementById('faktiskH').value;
+    const pctVal = document.getElementById('franvaroPctInp').value;
+    const { schema: sch } = getSchemaEfterKanda();
+    let franvaroPct = NaN;
+    if (timVal !== '') {
+      const h = parseFloat(timVal);
+      franvaroPct = sch > 0 ? (sch - h) / sch * 100 : NaN;
+    } else if (pctVal !== '') {
+      franvaroPct = parseFloat(pctVal);
+    }
+    if (!isNaN(franvaroPct) && franvaroPct >= 0 && franvaroPct <= 100) {
+      rows.push(`
+        <div class="personec-row">
+          <span class="plabel">Frånvaropost</span>
+          <span>
+            <span class="pval">${fd(franvaroPct/100, 3)}</span>
+            <span class="ppct">(${fd(franvaroPct)}%)</span>
+          </span>
+        </div>
+      `);
+    }
+  }
+
+  if (rows.length === 0) {
+    box.style.display = 'none';
+  } else {
+    box.style.display = '';
+    list.innerHTML = rows.join('');
+  }
+}
+
+function sparaLogg() {
+  const { grundpct, schema: sch } = getSchemaEfterKanda();
+  const namn = document.getElementById('inp-namn').value.trim() || '—';
+
+  let faktiskH = NaN, franvaroPct = NaN;
+
+  if (mode === 'flera') {
+    // I fleralager-läget är schemat efter alla lager = faktiska timmar.
+    // Frånvaro% sparas inte — lagren sköter det i Personec.
+    if (kandaLager.length === 0) {
+      alert('Lägg till minst ett frånvarolager innan du sparar.');
+      return;
+    }
+    faktiskH = sch;
+    franvaroPct = NaN;
+  } else {
+    // Enkelt läge: läs från input-fälten
+    const timVal = document.getElementById('faktiskH').value;
+    const pctVal = document.getElementById('franvaroPctInp').value;
+    if (timVal !== '') {
+      faktiskH = parseFloat(timVal);
+      franvaroPct = sch > 0 ? (sch - faktiskH) / sch * 100 : NaN;
+    } else if (pctVal !== '') {
+      franvaroPct = parseFloat(pctVal);
+      faktiskH = sch * (1 - franvaroPct / 100);
+    }
+    if (isNaN(faktiskH) && isNaN(franvaroPct)) {
+      alert('Fyll i timmar eller frånvaro% innan du sparar.');
+      return;
+    }
+  }
+
+  const lagerInfo = mode === 'flera' && kandaLager.length > 0
+    ? kandaLager.map(l => l.typ + ' ' + fd(l.pct) + '%').join(' + ') : '';
+  logg.push({ mode, namn, grundpct, faktiskH, franvaroPct, lagerInfo });
+  renderLogg();
+}
+
+function renderLogg() {
+  const tbody = document.getElementById('logg-body');
+  if (logg.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#aaa;font-style:italic;padding:12px 8px">Inga sparade fall ännu.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logg.map((r, i) => {
+    let timText = '—';
+    if (!isNaN(r.faktiskH)) {
+      const min = Math.round(r.faktiskH * 60) % 60;
+      timText = fd(r.faktiskH) + ' h/v' + (min !== 0 ? '<br><span style="font-size:11px;color:#999">' + fhm(r.faktiskH) + '</span>' : '');
+    }
+    // I fleralager-läget visas inte frånvaro% (det är missvisande — lagren är svaret)
+    const franvaroCell = r.mode === 'flera'
+      ? '<span style="color:#aaa;font-size:12px;font-style:italic">se lager</span>'
+      : `<strong>${isNaN(r.franvaroPct) ? '—' : fd(r.franvaroPct) + '%'}</strong>`;
+    return `
+    <tr>
+      <td>${r.namn}${r.lagerInfo ? '<br><span style="font-size:11px;color:#999">' + r.lagerInfo + '</span>' : ''}</td>
+      <td>${fd(r.grundpct)}%</td>
+      <td>${timText}</td>
+      <td>${franvaroCell}</td>
+      <td class="no-print"><button class="del-btn-inline" onclick="taBortLogg(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function taBortLogg(i) { logg.splice(i, 1); renderLogg(); }
+
+renderKandaLager();
+calc();
+</script>
+</body>
+</html>
