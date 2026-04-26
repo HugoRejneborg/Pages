@@ -234,7 +234,17 @@ function resetInputFields() {
   document.getElementById('input-warning').style.display = 'none';
 }
 
+function clampField(el, min, max) {
+  const raw = parseFloat(el.value);
+  if (isNaN(raw)) return;
+  const clamped = Math.max(min, Math.min(max, raw));
+  if (raw !== clamped) el.value = clamped;
+}
+
 function onGrundChanged() {
+  // Synka heltid- och grundpct-fälten visuellt om användaren skrivit värden utanför tillåtet intervall
+  clampField(document.getElementById('heltid'), 1, 60);
+  clampField(document.getElementById('grundpct'), 0, 100);
   userHasEdited = false;
   resetInputFields();
   if (mode === 'flera' && kandaLager.length > 0) autoFyll();
@@ -244,7 +254,7 @@ function onGrundChanged() {
 function getSchemaEfterKanda() {
   const heltidRaw = parseFloat(document.getElementById('heltid').value);
   const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
-  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? heltidRaw : 40;
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(60, heltidRaw) : 40;
   const grundpct = !isNaN(grundpctRaw) ? clamp01pct(grundpctRaw) : 0;
   const grundH = heltid * grundpct / 100;
   let schema = grundH;
@@ -306,7 +316,7 @@ function renderKandaLager() {
       </div>
       <div class="lager-row">
         <label>Frånvaro% (av lagrets schema)</label>
-        <input type="number" value="${l.pct}" min="0" max="100" step="1" style="width:80px" oninput="uppdateraKandPct(${l.id}, this.value)">
+        <input type="number" value="${l.pct}" min="0" max="100" step="1" style="width:80px" oninput="uppdateraKandPct(${l.id}, this)">
         <span class="unit">% &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= andel ${fd((l.pct||0)/100, 3)}</span></span>
       </div>
     </div>
@@ -331,15 +341,17 @@ function uppdateraKandTyp(id, val) {
   renderPersonecBox();
 }
 
-function uppdateraKandPct(id, val) {
+function uppdateraKandPct(id, inputEl) {
   const lager = kandaLager.find(l => l.id === id);
-  if (lager) {
-    const raw = parseFloat(val);
-    lager.pct = isNaN(raw) ? 0 : clamp01pct(raw);
-  }
+  if (!lager) return;
+  const raw = parseFloat(inputEl.value);
+  const clamped = isNaN(raw) ? 0 : clamp01pct(raw);
+  // Synka inputfältet visuellt om värdet klampats (men rör inte tomma fält under pågående redigering)
+  if (!isNaN(raw) && raw !== clamped) inputEl.value = clamped;
+  lager.pct = clamped;
   // Uppdatera andelsvisningen direkt (utan att re-rendera hela lager-rutan, som skulle tappa fokus)
   const andelSpan = document.getElementById('andel-' + id);
-  if (andelSpan && lager) andelSpan.textContent = '= andel ' + fd((lager.pct || 0) / 100, 3);
+  if (andelSpan) andelSpan.textContent = '= andel ' + fd((lager.pct || 0) / 100, 3);
   userHasEdited = false;
   autoFyll();
   calc();
@@ -448,15 +460,18 @@ function calc() {
     const sourceIsPct = pEl.classList.contains('manual-override') && pctVal !== '';
     const sourceIsTim = tEl.classList.contains('manual-override') && timVal !== '';
 
+    let invalid = false;
     if (sourceIsPct) {
       franvaroPct = parseFloat(pctVal);
       faktiskH = sch * (1 - franvaroPct / 100);
       if (franvaroPct > 100) {
         pEl.classList.add('input-error');
         showWarning('Frånvaro% kan inte vara över 100.');
+        invalid = true;
       } else if (franvaroPct < 0) {
         pEl.classList.add('input-error');
         showWarning('Frånvaro% kan inte vara negativt.');
+        invalid = true;
       }
     } else if (sourceIsTim || timVal !== '') {
       faktiskH = parseFloat(timVal);
@@ -464,13 +479,21 @@ function calc() {
       if (faktiskH > sch + 0.05) {
         tEl.classList.add('input-error');
         showWarning(`Timmarna (${fd(faktiskH)} h/v) är fler än schemat tillåter (${fd(sch)} h/v). Kontrollera inmatningen.`);
+        invalid = true;
       } else if (faktiskH < 0) {
         tEl.classList.add('input-error');
         showWarning('Timmar kan inte vara negativt.');
+        invalid = true;
       }
     } else if (pctVal !== '') {
       franvaroPct = parseFloat(pctVal);
       faktiskH = sch * (1 - franvaroPct / 100);
+    }
+    // Vid ogiltigt värde: visa '—' i resultatkortet — varning + felmarkering räcker som signal,
+    // ett negativt eller >100% värde är missvisande att registrera.
+    if (invalid) {
+      franvaroPct = NaN;
+      faktiskH = NaN;
     }
   }
 
