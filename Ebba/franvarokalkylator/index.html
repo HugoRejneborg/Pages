@@ -279,7 +279,7 @@ function autoFyll() {
   const { schema } = getSchemaEfterKanda();
   const tEl = document.getElementById('faktiskH');
   const pEl = document.getElementById('franvaroPctInp');
-  tEl.value = Math.round(schema * 10) / 10;
+  tEl.value = Math.round(schema * 1000) / 1000;
   pEl.value = 0;
   tEl.classList.remove('manual-override', 'input-error');
   pEl.classList.remove('manual-override', 'input-error');
@@ -382,7 +382,7 @@ function fromTimmar() {
     const { schema } = getSchemaEfterKanda();
     const h = parseFloat(timVal);
     if (schema > 0) {
-      pEl.value = Math.round((schema - h) / schema * 1000) / 10;
+      pEl.value = Math.round((schema - h) / schema * 100000) / 1000;
     } else {
       pEl.value = '';
     }
@@ -408,7 +408,7 @@ function fromPct() {
   } else {
     const { schema } = getSchemaEfterKanda();
     const p = parseFloat(pctVal);
-    tEl.value = Math.round(schema * (1 - p / 100) * 10) / 10;
+    tEl.value = Math.round(schema * (1 - p / 100) * 1000) / 1000;
   }
   syncing = false;
   calc();
