@@ -359,7 +359,7 @@ function renderKandaLager() {
       </div>` : `
       <div class="lager-row">
         <label>Frånvarotimmar (h/v)</label>
-        <input type="number" value="${Math.round(timBort*100)/100}" min="0" max="${Math.round(sFore*100)/100}" step="0.5" style="width:80px" oninput="uppdateraKandTim(${l.id}, this)">
+        <input type="number" id="tim-input-${l.id}" value="${Math.round(timBort*100)/100}" min="0" max="${Math.round(sFore*100)/100}" step="0.5" style="width:80px" oninput="uppdateraKandTim(${l.id}, this)">
         <span class="unit">h/v av ${fd(sFore)} &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= ${fd(l.pct)}% (andel ${fd((l.pct||0)/100, 3)})</span></span>
       </div>`}
     </div>
@@ -390,6 +390,17 @@ function aktivtSchemaForeLager(id) {
     s = s * (1 - (l.pct || 0) / 100);
   }
   return s;
+}
+
+// Synka tim-lagrets input-fält (value + max) mot internt timH/schema, utan att re-rendera.
+// Skippar om fältet är aktivt fokuserat så att användarens pågående inmatning inte störs.
+function uppdateraTimInputDOM(lager) {
+  if ((lager.inputMode || 'pct') !== 'tim') return;
+  const inp = document.getElementById('tim-input-' + lager.id);
+  if (!inp || document.activeElement === inp) return;
+  const sFore = aktivtSchemaForeLager(lager.id);
+  inp.value = Math.round((lager.timH || 0) * 100) / 100;
+  inp.max = Math.round(sFore * 100) / 100;
 }
 
 // Uppdatera den lilla andelsraden bredvid input-fältet utan att re-rendera lager-rutan
@@ -440,7 +451,10 @@ function uppdateraKandPct(id, inputEl) {
   const idx = kandaLager.findIndex(l => l.id === id);
   if (kandaLager.length > idx + 1) {
     synkaTimLagerMotSchema();
-    for (let i = idx + 1; i < kandaLager.length; i++) uppdateraAndelSpan(kandaLager[i]);
+    for (let i = idx + 1; i < kandaLager.length; i++) {
+      uppdateraAndelSpan(kandaLager[i]);
+      uppdateraTimInputDOM(kandaLager[i]);
+    }
   }
   userHasEdited = false;
   autoFyll();
@@ -463,7 +477,10 @@ function uppdateraKandTim(id, inputEl) {
   const idx = kandaLager.findIndex(l => l.id === id);
   if (kandaLager.length > idx + 1) {
     synkaTimLagerMotSchema();
-    for (let i = idx + 1; i < kandaLager.length; i++) uppdateraAndelSpan(kandaLager[i]);
+    for (let i = idx + 1; i < kandaLager.length; i++) {
+      uppdateraAndelSpan(kandaLager[i]);
+      uppdateraTimInputDOM(kandaLager[i]);
+    }
   }
   userHasEdited = false;
   autoFyll();
