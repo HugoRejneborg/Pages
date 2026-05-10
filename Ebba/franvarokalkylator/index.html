@@ -305,6 +305,9 @@ function laggTillKandLager() {
 function taBortKandLager(id) {
   kandaLager = kandaLager.filter(l => l.id !== id);
   userHasEdited = false;
+  // Schemat har förändrats för efterföljande lager — synka tim-lager så att deras
+  // timH bevaras absolut och pct räknas om mot nytt schema.
+  synkaTimLagerMotSchema();
   renderKandaLager();
   if (kandaLager.length > 0) autoFyll(); else resetInputFields();
   calc();
