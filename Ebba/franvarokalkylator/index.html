@@ -89,7 +89,7 @@ table.logtable tr:nth-child(even) td { background: #f8fafc; }
   </div>
   <div class="row">
     <label>Heltidsmått (h/vecka)</label>
-    <input type="number" id="heltid" value="40" min="1" max="60" step="1" oninput="onGrundChanged()" onchange="onHeltidCommit()">
+    <input type="number" id="heltid" value="40" min="1" max="40" step="1" oninput="onGrundChanged()" onchange="onHeltidCommit()">
     <span class="unit">h/v</span>
   </div>
   <div class="row">
@@ -178,7 +178,7 @@ let kandaCount = 0;
 let logg = [];
 let syncing = false;
 let userHasEdited = false;
-const typer = ['Tjänstledighet','Föräldraledighet','Sjukdom','VAB','Annan'];
+const typer = ['Tjänstledighet','Föräldraledighet','Sjukdom','VAB','Studieledighet','Annan'];
 
 function fd(n, dec=1) { return isNaN(n) || n === null ? '—' : Number(n).toFixed(dec).replace('.', ','); }
 
@@ -250,18 +250,23 @@ function onHeltidCommit() {
 
 function onGrundChanged() {
   // Synka heltid- och grundpct-fälten visuellt om användaren skrivit värden utanför tillåtet intervall
-  clampField(document.getElementById('heltid'), 1, 60);
+  clampField(document.getElementById('heltid'), 1, 40);
   clampField(document.getElementById('grundpct'), 0, 100);
   userHasEdited = false;
   resetInputFields();
-  if (mode === 'flera' && kandaLager.length > 0) autoFyll();
+  // Nollställ frånvarolagrens värden (typ behålls) — samma logik som resetInputFields gör för sida 1
+  if (mode === 'flera' && kandaLager.length > 0) {
+    kandaLager.forEach(l => { l.pct = 0; l.timH = null; });
+    renderKandaLager();
+    autoFyll();
+  }
   calc();
 }
 
 function getSchemaEfterKanda() {
   const heltidRaw = parseFloat(document.getElementById('heltid').value);
   const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
-  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(60, heltidRaw) : 40;
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(40, heltidRaw) : 40;
   const grundpct = !isNaN(grundpctRaw) ? clamp01pct(grundpctRaw) : 0;
   const grundH = heltid * grundpct / 100;
   let schema = grundH;
@@ -290,7 +295,7 @@ function autoFyll() {
 
 function laggTillKandLager() {
   const id = kandaCount++;
-  kandaLager.push({ id, typ: 'Tjänstledighet', pct: 20 });
+  kandaLager.push({ id, typ: 'Tjänstledighet', pct: 20, timH: null, inputMode: 'pct' });
   userHasEdited = false;
   renderKandaLager();
   autoFyll();
@@ -311,7 +316,22 @@ function renderKandaLager() {
     c.innerHTML = '<div style="font-size:13px;color:#999;padding:4px 0 10px;font-style:italic;">Inga lager ännu. Tryck + för att lägga till.</div>';
     return;
   }
-  c.innerHTML = kandaLager.map((l, i) => `
+  // Räkna ut aktivt schema före varje lager (h/v) för att kunna visa "av X h/v" och timmar-fältets max
+  const heltidRaw = parseFloat(document.getElementById('heltid').value);
+  const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(40, heltidRaw) : 40;
+  const grundpct = !isNaN(grundpctRaw) ? clamp01pct(grundpctRaw) : 0;
+  let aktivtSchemaFore = heltid * grundpct / 100;
+  const schemaFore = [];
+  kandaLager.forEach(l => {
+    schemaFore.push(aktivtSchemaFore);
+    aktivtSchemaFore = aktivtSchemaFore * (1 - (l.pct || 0) / 100);
+  });
+  c.innerHTML = kandaLager.map((l, i) => {
+    const sFore = schemaFore[i];
+    const timBort = sFore * (l.pct || 0) / 100;
+    const isPct = (l.inputMode || 'pct') === 'pct';
+    return `
     <div class="lager-box">
       <button class="del-btn" onclick="taBortKandLager(${l.id})">✕</button>
       <div style="font-size:13px;font-weight:600;margin-bottom:10px;"><span class="lager-nummer">Lager ${i+1}</span></div>
@@ -322,12 +342,26 @@ function renderKandaLager() {
         </select>
       </div>
       <div class="lager-row">
-        <label>Frånvaro% (av lagrets schema)</label>
-        <input type="number" value="${l.pct}" min="0" max="100" step="1" style="width:80px" oninput="uppdateraKandPct(${l.id}, this)">
-        <span class="unit">% &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= andel ${fd((l.pct||0)/100, 3)}</span></span>
+        <label>Ange frånvaro som</label>
+        <div class="toggle-row" style="margin:0;">
+          <button type="button" class="toggle-btn${isPct?' active':''}" style="padding:4px 12px;font-size:12px;" onclick="uppdateraKandInputMode(${l.id}, 'pct')">Procent</button>
+          <button type="button" class="toggle-btn${!isPct?' active':''}" style="padding:4px 12px;font-size:12px;" onclick="uppdateraKandInputMode(${l.id}, 'tim')">Timmar</button>
+        </div>
       </div>
+      ${isPct ? `
+      <div class="lager-row">
+        <label>Frånvaro% (av lagrets schema)</label>
+        <input type="number" value="${Math.round((l.pct||0)*10)/10}" min="0" max="100" step="1" style="width:80px" oninput="uppdateraKandPct(${l.id}, this)">
+        <span class="unit">% &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= andel ${fd((l.pct||0)/100, 3)} · ${fd(timBort)} h/v av ${fd(sFore)}</span></span>
+      </div>` : `
+      <div class="lager-row">
+        <label>Frånvarotimmar (h/v)</label>
+        <input type="number" value="${Math.round(timBort*100)/100}" min="0" max="${Math.round(sFore*100)/100}" step="0.5" style="width:80px" oninput="uppdateraKandTim(${l.id}, this)">
+        <span class="unit">h/v av ${fd(sFore)} &nbsp;<span style="color:#1e6fb0;font-weight:600" id="andel-${l.id}">= ${fd(l.pct)}% (andel ${fd((l.pct||0)/100, 3)})</span></span>
+      </div>`}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderKandaLagerPrint() {
@@ -341,11 +375,49 @@ function renderKandaLagerPrint() {
     '</ul>';
 }
 
-function uppdateraKandTyp(id, val) {
-  const lager = kandaLager.find(l => l.id === id);
-  if (lager) lager.typ = val;
-  renderKandaLagerPrint();
-  renderPersonecBox();
+// Hjälpare: räkna ut det aktiva schemat (h/v) som gäller före ett visst lager
+function aktivtSchemaForeLager(id) {
+  const heltidRaw = parseFloat(document.getElementById('heltid').value);
+  const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(40, heltidRaw) : 40;
+  const grundpct = !isNaN(grundpctRaw) ? clamp01pct(grundpctRaw) : 0;
+  let s = heltid * grundpct / 100;
+  for (const l of kandaLager) {
+    if (l.id === id) return s;
+    s = s * (1 - (l.pct || 0) / 100);
+  }
+  return s;
+}
+
+// Uppdatera den lilla andelsraden bredvid input-fältet utan att re-rendera lager-rutan
+function uppdateraAndelSpan(lager) {
+  const span = document.getElementById('andel-' + lager.id);
+  if (!span) return;
+  const sFore = aktivtSchemaForeLager(lager.id);
+  const timBort = sFore * (lager.pct || 0) / 100;
+  if ((lager.inputMode || 'pct') === 'pct') {
+    span.textContent = '= andel ' + fd((lager.pct || 0) / 100, 3) + ' · ' + fd(timBort) + ' h/v av ' + fd(sFore);
+  } else {
+    span.textContent = '= ' + fd(lager.pct) + '% (andel ' + fd((lager.pct || 0) / 100, 3) + ')';
+  }
+}
+
+// För alla lager i timmar-läge: timH står still, räkna om pct mot nuvarande aktiva schema.
+// Klampa timH ned om aktivt schema krympt så att timH > schemat.
+// Iterativt så att varje lagers omräknade pct påverkar nästa lagers schema.
+function synkaTimLagerMotSchema() {
+  const heltidRaw = parseFloat(document.getElementById('heltid').value);
+  const grundpctRaw = parseFloat(document.getElementById('grundpct').value);
+  const heltid = (!isNaN(heltidRaw) && heltidRaw > 0) ? Math.min(40, heltidRaw) : 40;
+  const grundpct = !isNaN(grundpctRaw) ? clamp01pct(grundpctRaw) : 0;
+  let s = heltid * grundpct / 100;
+  for (const l of kandaLager) {
+    if ((l.inputMode || 'pct') === 'tim' && l.timH !== null && !isNaN(l.timH)) {
+      if (l.timH > s) l.timH = Math.max(0, s);
+      l.pct = s > 0 ? (l.timH / s) * 100 : 0;
+    }
+    s = s * (1 - (l.pct || 0) / 100);
+  }
 }
 
 function uppdateraKandPct(id, inputEl) {
@@ -356,12 +428,65 @@ function uppdateraKandPct(id, inputEl) {
   // Synka inputfältet visuellt om värdet klampats (men rör inte tomma fält under pågående redigering)
   if (!isNaN(raw) && raw !== clamped) inputEl.value = clamped;
   lager.pct = clamped;
-  // Uppdatera andelsvisningen direkt (utan att re-rendera hela lager-rutan, som skulle tappa fokus)
-  const andelSpan = document.getElementById('andel-' + id);
-  if (andelSpan) andelSpan.textContent = '= andel ' + fd((lager.pct || 0) / 100, 3);
+  // pct är sanning för procent-lager — rensa timH (kan vara satt från tidigare timmar-läge)
+  lager.timH = null;
+  // Uppdatera andelsvisningen direkt
+  uppdateraAndelSpan(lager);
+  // Efterföljande lager: schemat har ändrats. Synka timmar-lager och uppdatera deras andel-spans.
+  // Vi rör INTE deras DOM-struktur (input-fält etc.) för att inte störa pågående inmatning.
+  const idx = kandaLager.findIndex(l => l.id === id);
+  if (kandaLager.length > idx + 1) {
+    synkaTimLagerMotSchema();
+    for (let i = idx + 1; i < kandaLager.length; i++) uppdateraAndelSpan(kandaLager[i]);
+  }
   userHasEdited = false;
   autoFyll();
   calc();
+}
+
+function uppdateraKandTim(id, inputEl) {
+  const lager = kandaLager.find(l => l.id === id);
+  if (!lager) return;
+  const sFore = aktivtSchemaForeLager(id);
+  const raw = parseFloat(inputEl.value);
+  // Klampa till [0, sFore] så användaren inte kan ange fler frånvarotimmar än lagret tillåter
+  let clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(sFore, raw));
+  if (!isNaN(raw) && Math.abs(raw - clamped) > 0.0005) inputEl.value = clamped;
+  // timH är sanning för timmar-lager — bevaras vid ändringar i tidigare lager och grundsyss
+  lager.timH = clamped;
+  lager.pct = sFore > 0 ? (clamped / sFore) * 100 : 0;
+  uppdateraAndelSpan(lager);
+  // Efterföljande lager: samma logik som ovan
+  const idx = kandaLager.findIndex(l => l.id === id);
+  if (kandaLager.length > idx + 1) {
+    synkaTimLagerMotSchema();
+    for (let i = idx + 1; i < kandaLager.length; i++) uppdateraAndelSpan(kandaLager[i]);
+  }
+  userHasEdited = false;
+  autoFyll();
+  calc();
+}
+
+function uppdateraKandInputMode(id, mode) {
+  const lager = kandaLager.find(l => l.id === id);
+  if (!lager) return;
+  // Vid byte till timmar-läge: initialisera timH från nuvarande pct mot aktuellt schema
+  if (mode === 'tim' && (lager.inputMode || 'pct') !== 'tim') {
+    const sFore = aktivtSchemaForeLager(id);
+    lager.timH = sFore * (lager.pct || 0) / 100;
+  } else if (mode === 'pct' && lager.inputMode === 'tim') {
+    lager.timH = null;
+  }
+  lager.inputMode = mode;
+  renderKandaLager();
+  calc();
+}
+
+function uppdateraKandTyp(id, val) {
+  const lager = kandaLager.find(l => l.id === id);
+  if (lager) lager.typ = val;
+  renderKandaLagerPrint();
+  renderPersonecBox();
 }
 
 function fromTimmar() {
