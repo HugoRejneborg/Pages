@@ -330,8 +330,29 @@ main {
   font-size: 12px;
 }
 .calc-row:last-child { border-bottom: none; }
-.calc-row .lbl { color: #666; }
+.calc-row .lbl { color: #666; display: inline-flex; align-items: center; gap: 6px; }
 .calc-row .val { font-weight: 600; color: #1a1a1a; font-variant-numeric: tabular-nums; }
+.layer-badge {
+  display: inline-block;
+  background: #DBE7F2;
+  color: #1F4E79;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+.calc-formula {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: #F4F6F9;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #5A6470;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
 .calc-result {
   margin-top: 12px;
   padding: 10px 12px;
@@ -430,22 +451,23 @@ footer a:hover { color: var(--ink); }
       <div class="tool-card-visual">
         <div class="calc-mock" aria-hidden="true">
           <div class="calc-mock-title">Frånvarokalkylator</div>
-          <div class="calc-mock-sub">Närvaroberäkning · live</div>
-          <div class="calc-row">
-            <span class="lbl">Heltidsmått</span>
-            <span class="val">40,0 h/v</span>
-          </div>
+          <div class="calc-mock-sub">Frånvaro på frånvaro · 2 lager</div>
           <div class="calc-row">
             <span class="lbl">Grundsysselsättning</span>
-            <span class="val">100 %</span>
+            <span class="val">80 %</span>
           </div>
           <div class="calc-row">
-            <span class="lbl">Frånvaro</span>
+            <span class="lbl"><span class="layer-badge">L1</span>Föräldraledighet</span>
+            <span class="val">40 %</span>
+          </div>
+          <div class="calc-row">
+            <span class="lbl"><span class="layer-badge">L2</span>Sjukfrånvaro</span>
             <span class="val">25 %</span>
           </div>
+          <div class="calc-formula">80 × 0,60 × 0,75</div>
           <div class="calc-result">
             <span class="lbl">Faktisk närvaro</span>
-            <span class="val"><span class="counter" data-target="75">0</span> %</span>
+            <span class="val"><span class="counter" data-target="36">0</span> %</span>
           </div>
         </div>
       </div>
